@@ -1,6 +1,11 @@
 import os
-from .amr2cube import run_amr2cube
+import f90nml
+from .amr2cube import run_amr2cube_from_nml
 from .skirt import run_ramski
+from ..external.ramtools.ramtools import ramses
+from ..external.ramtools.ramtools.to_skirt import to_skirt
+from .run_final_spectrum import make_spec_new
+
 
 global FIELDS 
 FIELDS = {
@@ -8,15 +13,50 @@ FIELDS = {
     'xHII': 12,
 }
 
-def runjob(jobpath, outs, datadir, center, width, lma, nml):
-    print(">>>>>>>>>> Preparing cube data using amr2cube...")
-    cube_data_path = f"{datadir}/amr2cube"
-    os.makedirs(cube_data_path, exist_ok=True)
-    run_amr2cube(jobpath, outs, cube_data_path, center, width, lma, fields=FIELDS)
 
-    skirt_data_path = f"{datadir}/skirt"
-    run_ramski(jobpath, outs, skirt_data_path, nml, family="CK", letdie=False,
-               version="2023")
+def run_cube_and_ramski(ramjobdir, outs, skirt_data_dir, cube_data_dir, nml, lmax, letdie=True, version="2023"):
+    
+    print(">>>>>>>>>> Preparing cube data using amr2cube...")
+    os.makedirs(cube_data_dir, exist_ok=True)
+    run_amr2cube_from_nml(ramjobdir, outs, out_dir=cube_data_dir, nml=nml, fields=FIELDS, lmax=lmax)
+    print("Success!")
+    print()
+
+    print(">>>>>>>>>> Running RAMSKI...")
+    ret = run_ramski(ramjobdir, outs, skirt_data_dir, nml, lmax=lmax, letdie=letdie, version=version)
+    if ret == 0:
+        print("Success!")
+        print()
+        print(f"Now you can run SKIRT simulations in the output folder: {skirt_data_dir}")
+    else:
+        print("Failed!")
+        print()
+
+    print(">>>>>>>>>> Calculate H-alpha spectrum...")
+    # data_name = "data-v6-cont-die"
+    # plot_base_dir = f"../figures/{data_name}"
+    # ha_data = "../data/data_amr2cube" # this is v6
+    # overwrite = 0
+    # feature = "main_CK_corrected_1e6ph_sedsb"
+    # boxw = 0.8
+    # task = 'all'
+
+    # # 2022-03-10, rerun in 2022. Add the following
+    task = 'sed'
+    overwrite = 1
+
+    jobids = ['2.2.2']
+    for jobid in jobids:
+        make_spec_new(ramjobdir, 
+                      skirt_data_dir, 
+                      plot_base_dir='.',
+                      ha_data=cube_data_dir, 
+                      fn_nml=nml,
+                      outs=outs,
+                      fn_fig="halpha",
+                      lmax=lmax,
+                      )
+
     return
 
 

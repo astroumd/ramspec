@@ -58,7 +58,7 @@ def run_ski(ski, feature="main_CK"):
                  decades=4, figSize=(7, 4.5), outFileName=f"{ski}_sed.png", )
 
 
-def mod_ski(fi, fo, nph, lmax, fn_par, fn_nml, fn_ramses_info, version="2020"):
+def mod_ski(fi, fo, lmax, fn_par, fn_nml, fn_ramses_info, nph=None, version="2020"):
     """
     fi: input ski file
     fo: output ski file
@@ -77,7 +77,8 @@ def mod_ski(fi, fo, nph, lmax, fn_par, fn_nml, fn_ramses_info, version="2020"):
             print("{fo} exists and is newer than this python script. Not doing anything")
             return 1
     ski = sm.SkiFile(fi)
-    ski.setNumPrimaryPackets(nph)
+    if nph is not None:
+        ski.setNumPrimaryPackets(nph)
     ski.setStringAttribute(
         "MonteCarloSimulation/sourceSystem/SourceSystem/sources/ParticleSource",
         "filename", fn_par)

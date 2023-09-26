@@ -8,8 +8,9 @@ from astropy.io import fits
 import json
 from glob import glob
 from IPython.display import display
-from ..external.ramtools.radiation_module import DustExtinction
-from ..external.ramtools import ramses
+from ..external.ramtools.ramtools.radiation_module import DustExtinction
+from ..external.ramtools.ramtools import ramses
+from .sed_tools import combine_spec, get_sed
 
 try:
     from academicpython import plottools as pt
@@ -26,7 +27,6 @@ except ModuleNotFoundError:
         def save(self, fn):
             plt.savefig(os.path.join(self.Plotdir, fn), dpi=300)
 
-from .sed_tools import combine_spec, get_sed
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ def plot_sed():
     return
 
 
-def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir, fn_json, box_fraction=0.8, outs=None, feature=None, ha_width=1., lmax=9):
+def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir, fn_json, outs, box_fraction, feature=None, ha_width=1., lmax=9, cubeformater="{}"):
     """Combine H-alpha with continuum from dust extinction
 
     Args:
@@ -166,27 +166,6 @@ def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir,
     r.get_units()
     width = box_fraction * r.unit_l   # cm
 
-    LOGGER.debug(f"outs (before) = {outs}")
-    if outs is None:
-        _outs = r.get_all_outputs()
-        LOGGER.debug(f"_outs = {_outs}")
-        outs = []
-        for i in _outs:
-            if os.path.isdir(f"{data_job_dir}/out{i}") and\
-               os.path.isfile(f"{halpha_data_dir}/out{i}_den_l{lmax}.dat"):
-                LOGGER.debug(f"out = {i}, yes")
-                LOGGER.debug(glob(f"{data_job_dir}/out{i}/{feature}*"))
-                if len(glob(f"{data_job_dir}/out{i}/{feature}*")) > 0:
-                    outs.append(i)
-            else:
-                LOGGER.debug(f"{data_job_dir}/out{i} exist? " +
-                             str(os.path.isdir(f"{data_job_dir}/out{i}")))
-                LOGGER.debug(f"{halpha_data_dir}/out{i}_den_l{lmax}.dat ?" +
-                             str(os.path.isfile(f"{halpha_data_dir}/out{i}_den_l{lmax}.dat")))
-
-    LOGGER.debug(f"outs (after) = {outs}")
-    if outs == []:
-        raise SystemExit("{}: outs is empty".format(__file__))
     # if os.path.isfile(fn_json):
     #     with open(fn_json, 'r') as fin:
     #         dic = json.load(fin)
@@ -291,8 +270,9 @@ def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir,
         dic['dust_spec'][out] = NoIndent(list(spec_per_arcsec2))
 
         # H-alpha
-        den = f"{halpha_data_dir}/out{out}_den_l{lmax}.dat"
-        xHII = f"{halpha_data_dir}/out{out}_xHII_l{lmax}.dat"
+        str_out = cubeformater.format(out)
+        den = f"{halpha_data_dir}/out{str_out}_den_l{lmax}.dat"
+        xHII = f"{halpha_data_dir}/out{str_out}_xHII_l{lmax}.dat"
         surfb_ext = halpha_sb(den, xHII, width, axis=axis) # erg s-1 cm-2 arcsec-2
         surfb_no_dust = halpha_sb(den, xHII, width, axis=axis, with_dust=0) # erg s-1 cm-2 arcsec-2
 
