@@ -6,6 +6,7 @@ from scipy.io import FortranFile
 # from astropy.wcs import WCS
 from astropy.io import fits
 import json
+import f90nml
 from glob import glob
 from IPython.display import display
 from ..external.ramtools.ramtools.radiation_module import DustExtinction
@@ -131,7 +132,58 @@ def plot_sed():
     return
 
 
-def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir, fn_json, outs, box_fraction, feature=None, ha_width=1., lmax=9, cubeformater="{}"):
+def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=None, box_fraction=None, cube_data_index_formater="{}"):
+
+    axis = 1
+    r = ramses.Ramses(ram_job_dir)
+    r.get_units()
+    if box_fraction is None:
+        assert(nml is not None, "nml file is needed to calculate box_fraction")
+        the_nml = f90nml.read(nml)
+        params = the_nml["PARAMS"]
+        # TODO: extend this to projection from any axis
+        if axis == 1:
+            box_fraction = float(params["xmax"]) - float(params["xmin"])
+        elif axis == 2:
+            box_fraction = float(params["ymax"]) - float(params["ymin"])
+        elif axis == 3:
+            box_fraction = float(params["zmax"]) - float(params["zmin"])
+    width = box_fraction * r.unit_l   # cm
+
+    for out in outs:
+        str_out = f"{out:05d}"
+        fn_ha = f"{ha_data_dir}/sb_with_dust_out{str_out}.npy"
+        fn_ha_no_dust = f"{ha_data_dir}/sb_no_dust_out{str_out}.npy"
+        fn_json = f"{ha_data_dir}/line_str_out{str_out}.json"
+        if os.path.isfile(fn_ha) and os.path.isfile(fn_ha_no_dust) and os.path.isfile(fn_json):
+            print(f"Skipping out {out} because {fn_ha} exists")
+            continue
+        
+        # H-alpha
+        str_out = cube_data_index_formater.format(out)
+        den = f"{cube_data_dir}/out{str_out}_den_l{lmax}.dat"
+        xHII = f"{cube_data_dir}/out{str_out}_xHII_l{lmax}.dat"
+        surfb_ext = halpha_sb(den, xHII, width, axis=axis) # erg s-1 cm-2 arcsec-2
+        surfb_no_dust = halpha_sb(den, xHII, width, axis=axis, with_dust=0) # erg s-1 cm-2 arcsec-2
+        np.save(fn_ha, surfb_ext)
+        np.save(fn_ha_no_dust, surfb_no_dust)
+
+        lam_halpha = 0.65628   # um
+        halpha_sb_mean = np.mean(np.mean(surfb_ext, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
+        halpha_sb_no_dust_mean = np.mean(np.mean(surfb_no_dust, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
+        halpha_sb_mean_arr = np.array([halpha_sb_mean]).reshape([1,1])
+        ha_json = {
+            'halpha_strength': halpha_sb_mean,
+            'halpha_strength_unit': "erg s-1 cm-2 arcsec-2",
+        }
+        # save ha_json
+        json.dump(ha_json, open(fn_json, 'w'), indent=2)
+
+    return
+
+    
+
+def do_full_spec(ram_job_dir, skirt_data_dir, plot_base_dir, halpha_data_base_dir, fn_json, outs, box_fraction, feature=None, ha_width=1., lmax=9, cube_dataname_formater="{}"):
     """Combine H-alpha with continuum from dust extinction
 
     Args:
@@ -194,20 +246,14 @@ def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir,
         "0.6 micron is the highest spectrum resolution of JWST."
     is_plot = 0
     for out in outs:
-        # if os.path.isfile(f"{pt.PLOT_DIR}/sed_with_ha_out{out}.pdf"):
-        #     print(f"{pt.PLOT_DIR}/sed_with_ha_out{out}.pdf exists. Skipped")
-        #     continue
         #-------- spatially integrated spectrum of continuum --------#
-        # root_path = f"../data/{VERSION}/sam_{jobid}_out{out}"
-        root_path = f"{data_job_dir}/out{out:05d}"
-        #feature = 'main_CK_1e6ph_sedsb'
+        root_path = f"{skirt_data_dir}/out{out:05d}"
         fn_fits = f"{root_path}/{feature}_total.fits"
         wavel, spec = get_sed(f'{root_path}/{feature}')
         wavel2, spec2 = get_sed(f'{root_path}/{feature}', kind="fits", is_int=1)
 
         # plot comparison between spec and spec2
-        compare_spec12 = 0
-        if compare_spec12:
+        if 0:
             with plt.style.context(['science', 'no-latex']):
                 plt.figure()
                 plt.plot(wavel, spec, 'C0', label="SED")
@@ -270,7 +316,7 @@ def do_full_spec(ram_job_dir, data_job_dir, plot_base_dir, halpha_data_base_dir,
         dic['dust_spec'][out] = NoIndent(list(spec_per_arcsec2))
 
         # H-alpha
-        str_out = cubeformater.format(out)
+        str_out = cube_dataname_formater.format(out)
         den = f"{halpha_data_dir}/out{str_out}_den_l{lmax}.dat"
         xHII = f"{halpha_data_dir}/out{str_out}_xHII_l{lmax}.dat"
         surfb_ext = halpha_sb(den, xHII, width, axis=axis) # erg s-1 cm-2 arcsec-2

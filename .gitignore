@@ -2,7 +2,8 @@
 
 amr2cube_mod
 ramski
-/data/
+/data/*
+src.trash/
 
 # Prerequisites
 *.d

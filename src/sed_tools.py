@@ -168,7 +168,7 @@ def combine_spec(specs, wavelengths, spec2, wavelength2, width2='resol'):
                        'wavelengths represents real instrument.')
         ret[pick, ...] += spec2 / dlam_instru
     else:
-        assert type(width2) is float
+        assert type(width2) is float, "width2 should be a float but is {}".format(type(width2))
         # if width2 > dlam_instru:
         #     raise SystemExit("Your width2 is larger than the width of the instrument."\
         #                      "This is not supported right now.")

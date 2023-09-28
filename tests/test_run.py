@@ -21,7 +21,7 @@ def main2020():
     print("Success!")
 
 
-def main2023():
+def main():
 
     # ----- Set the following variables for your application -----
     data_base_dir = "../data"   # the base path to store the processed data
@@ -29,14 +29,14 @@ def main2023():
     nml = "../nml/ramses2023_test.nml"  # the path to the nml file
     outs = [30] # the output numbers to process
     lmax = 11   # the maximum refinement level for amr2cube (for calculating H-alpha). Note that this is different from the lmax in the nml file. 
-    skirt_data_dir = f"{data_base_dir}/test_run_v2023/skirt"    # the path to store the SKIRT data
-    cube_data_dir = f"{data_base_dir}/test_run_v2023/amr2cube"  # the path to store the amr2cube data
+    data_dir = f"{data_base_dir}/test_run_v2023"    # the path to store the processed data
+    plot_dir = f"{data_base_dir}/test_run_v2023"
 
-    ramspec.run_cube_and_ramski(jobpath, outs, skirt_data_dir, cube_data_dir, nml, lmax=11, letdie=False, version="2023")
+    ramspec.run_cube_and_ramski(jobpath, outs, data_dir, plot_dir, nml, lmax=lmax, letdie=False, version="2023")
 
     return
     
 
 if __name__ == "__main__":
 
-    main2023()
+    main()

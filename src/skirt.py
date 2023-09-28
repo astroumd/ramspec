@@ -103,9 +103,6 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
     return 0
 
 
-# if __name__ == "__main__":
-
-#     if len(sys.argv) >= 2:
-#         run_job(sys.argv[1])
-#     else:
-#         print(f"Usage: {sys.argv[0]} jobid")
+def plot_skirt_spec(skirt_data_dir, outs, plot_dir):
+    print("Doing nothing. To be implemented.")
+    return
