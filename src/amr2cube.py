@@ -6,7 +6,6 @@ Create grid data from RAMSES outputs using amr2cube.f90
 import os
 import subprocess
 import f90nml
-from ..external.ramtools.ramtools import ramses
 
 Thidir = os.path.dirname(os.path.realpath(__file__))
 # global EXE
@@ -14,12 +13,18 @@ EXE = f"{Thidir}/../tools/amr2cube/amr2cube_mod"
 
 
 def run_amr2cube_base(jobdir, outs, out_dir, center, width, lma, fields):
-    """ Run amr2cube.f90 for a given jobdir and output numbers
+    """Run amr2cube.f90 for a given jobdir and output numbers
+
+    Args:
+        jobdir (str): the path to the RAMSES job directory
+        outs (list of integers):  list of output numbers
+        out_dir (str): the path to store the output data
+        center (str or list of integers): the center of the sample box. If 'c', then the center is the center of the whole simulation box. Otherwise, it should be a list of three numbers between 0 and 1.
+        width (_type_): width of the sample box as a fraction of the simulation box size
+        lma (int): the maximum grid levels for grid sampling. The size of the grids would be 1/2^lma of the box size.
+        fields (dictionary): a dictionary to store the field names and their corresponding indices
     """
 
-    # if not os.path.isdir(out_dir):
-    #     os.makedirs(out_dir)
-        
     if isinstance(center, str):
         if center == 'c':
             center = [.5, .5, .5]
@@ -39,28 +44,27 @@ def run_amr2cube_base(jobdir, outs, out_dir, center, width, lma, fields):
                 print(f"{denname} exists. Skipping")
                 continue
             cmd = (f"{EXE} -inp {jobdir}/output_{i:05d} -out {denname} -typ {typ} -lma {lma} {params}")
-            # process = subprocess.run(cmd, shell=1, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,  universal_newlines=True)
-            # print(process.stdout)
             try: 
-                output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True, timeout=300, universal_newlines=True)
+                ret = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True, timeout=300, universal_newlines=True)
             except subprocess.CalledProcessError as exc:
                 print("Status : FAIL", exc.returncode, exc.output)
             else:
-                # print("Output: \n{}\n".format(output))
                 print("amr2cube run successfully")
 
             print(f"{denname} created")
 
 
 def run_amr2cube_from_nml(ramjobdir, outs, out_dir, nml, fields, lmax=None):
+    """Run amr2cube.f90 for a given jobdir and output numbers
 
-    ram = ramses.Ramses(ramjobdir)
-    # parse outs
-    if isinstance(outs, str):
-        if outs == "all":
-            outs = ram.get_all_outputs()
-        else:
-            raise ValueError(f"outs={outs} is not understood.")
+    Args:
+        ramjobdir (str): the path to the RAMSES job directory
+        outs (list of integers): list of output numbers
+        out_dir (str): the path to store the output data
+        nml (str): the path 
+        fields (dictionary): a dictionary to store the field names and their corresponding indices
+        lmax (int, optional): the maximum grid levels for grid sampling. The size of the grids would be 1/2^lmax of the box size. Defaults to None, in which case lmax is read from the namelist file.
+    """
 
     params = f90nml.read(nml)["PARAMS"]
     center = [(params["xmax"] + params["xmin"])/2,

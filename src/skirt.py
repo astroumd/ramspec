@@ -51,6 +51,8 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
     if lmax is None:
         lmax = params["lmax"]
 
+    has_new = False
+
     for out in outs:
         print(f"\nRunning RAMSKI for output {out}")
         fn_sink = ram.get_sink_path(out)
@@ -63,12 +65,14 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
         os.makedirs(out_dir, exist_ok=True)
         fn_part = os.path.join(out_dir, part)
         print(f"Creating {fn_part}")
-        to_skirt.to_skirt(jobdir=ramjobdir,
-            output=out,
+        to_skirt.to_skirt(
+            ramjobdir, 
+            out,
+            l_max=lmax,
             fn_out=fn_part,
-            center=center,
             family=SEDtype,
-            width_boxlen=width,
+            center=center,
+            width_box_frac=width,
             letdie=letdie,
             skip_exist=True,
         )
@@ -79,6 +83,7 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
         if os.path.isfile(hydro_fp):
             print(f"{out_dir}/hydro exists. Skipped")
         else:
+            has_new = True
             cmd = f"{RAMSKI} -inp {inp} -nmlpath {nml} -outdir {out_dir}"
             print("running")
             print(cmd)
@@ -86,7 +91,7 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
                 output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True, timeout=300, universal_newlines=True)
             except subprocess.CalledProcessError as exc:
                 print("Status : FAIL", exc.returncode, exc.output)
-                return 1
+                return 2
             else:
                 print("RAMSKI runs successfully")
                 print(f"Done creating hydro")
@@ -100,6 +105,8 @@ def run_ramski(ramjobdir, outs, skirt_job_dir, nml, lmax=None,
             fn_info = ram.get_info_path(out)
             mod_ski(ski_fn, ski_mod_fn, lmax, part, nml, fn_info, version=version)
 
+    if has_new:
+        return 1
     return 0
 
 

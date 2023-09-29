@@ -14,7 +14,6 @@ from astropy.io import fits
 from academicpython import plottools as pt
 from . import h_alpha
 from .sed_tools import get_sed, combine_spec
-from ..external.ramtools.ramtools import utilities, ramses
 
 matplotlib.rcParams['figure.dpi'] = 300
 plt.style.use(['science', 'no-latex'])
@@ -24,8 +23,13 @@ C_arcsec2_to_sr = 2.35044e-11
 lam_halpha = 0.65628  # um
 
 
-def make_combined_spec(data_dir, outs, feature="main_mod_total"):
-    """ The first half of combine_ha_with_skirt
+def make_combined_spec(data_dir, outs, feature):
+    """Make combined spectrum, combining continuum with H-alpha.
+
+    Args:
+        data_dir (str): path to the data directory
+        outs (list of integers): list of output numbers
+        feature (str): prefix of the output files from SKIRT simulation.
     """
     
     # load halpha data from file
@@ -39,7 +43,7 @@ def make_combined_spec(data_dir, outs, feature="main_mod_total"):
         # H-alpha
         data_json = json.load(open(os.path.join(ha_data_dir, f"line_str_out{out:05d}.json")))
         ha_strength = data_json['halpha_strength']
-        ha_unit = data_json['halpha_strength_unit']
+        ha_unit = data_json['unit']
         assert(ha_unit == "erg s-1 cm-2 arcsec-2")
         # surfb_ext = np.load(f"{ha_data_dir}/sb_with_dust_out{out:05d}.npy")
         # surfb_no_dust = np.load(f"{ha_data_dir}/sb_no_dust_out{out:05d}.npy")
@@ -93,6 +97,13 @@ def make_combined_spec(data_dir, outs, feature="main_mod_total"):
 
             
 def plot_combined_spec(data_dir, outs, plot_dir, feature):
+    """Plot combined spectrum.
+
+    Args:
+        data_dir (str): path to the data directory
+        outs (list of integers): list of output numbers
+        feature (str): prefix of the output files from SKIRT simulation.
+    """
     
     combined_data_dir = os.path.join(data_dir, "combined", feature)
 

@@ -132,7 +132,19 @@ def plot_sed():
     return
 
 
-def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=None, box_fraction=None, cube_data_index_formater="{}"):
+def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=None, box_fraction=None, cube_data_index_formater="{:05d}"):
+    """Calculate H-alpha surface brightness and spatially integrated spectrum
+
+    Args:
+        ram_job_dir (str): path to the RAMSES job directory
+        outs (list of integers): list of output numbers to process
+        cube_data_dir (str): paths to the amr2cube data
+        ha_data_dir (str): path to store the H-alpha data
+        lmax (int): maximum refinement level for amr2cube. Should be consistent with the lmax you used to cal run_amr2cube_from_nml().
+        nml (str, optional): path to the namelist file for SKIRT. Defaults to None.
+        box_fraction (float, optional): size of the of sample box as a fraction of the full simulation box. Defaults to None.
+        cube_data_index_formater (str, optional): formatter for the cube data indices. You should not change this. Defaults to "{:05d}".
+    """
 
     axis = 1
     r = ramses.Ramses(ram_job_dir)
@@ -168,13 +180,12 @@ def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=No
         np.save(fn_ha, surfb_ext)
         np.save(fn_ha_no_dust, surfb_no_dust)
 
-        lam_halpha = 0.65628   # um
         halpha_sb_mean = np.mean(np.mean(surfb_ext, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
         halpha_sb_no_dust_mean = np.mean(np.mean(surfb_no_dust, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
-        halpha_sb_mean_arr = np.array([halpha_sb_mean]).reshape([1,1])
         ha_json = {
             'halpha_strength': halpha_sb_mean,
-            'halpha_strength_unit': "erg s-1 cm-2 arcsec-2",
+            'halpha_no_dust_strength': halpha_sb_no_dust_mean,
+            'unit': "erg s-1 cm-2 arcsec-2",
         }
         # save ha_json
         json.dump(ha_json, open(fn_json, 'w'), indent=2)

@@ -10,7 +10,8 @@
 5. Check and install necessary packages for pts
    1. List Python package dependencies: `python -m pts.do list_dependencies` and install missing packages via conda or pip. For example, I have to do the following: `conda install lxml reportlab` and `python -m pip install fsps opencv-python`
 6. Run the tests
-   1. 
+   1. First, run the import_modules test to make sure all modules and installed and correctly linked: `cd test; python test_modules.py`
+   2. Run the actual test: `python test_run.py`. Before running this test, make sure to change a few variables: `ramspec.FIELDS`, `jobpath`, `nml`, `outs`, 
 
 Assumptions:
 1. The sink particle data is the same as my star formation runs. This is probably not always true. 
