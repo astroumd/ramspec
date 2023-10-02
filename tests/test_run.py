@@ -21,7 +21,7 @@ def main():
     # data_dir = f"{data_base_dir}/test_run_v2023"    # the path to store the processed data
     # plot_dir = f"{data_base_dir}/test_run_v2023"
 
-    ramspec.run_cube_and_ramski(jobpath, outs, data_dir, plot_dir, nml, lmax=lmax, letdie=False)
+    ramspec.run_cube_and_ramski(jobpath, outs, data_dir, plot_dir, nml, lmax=lmax)
 
     return
     
