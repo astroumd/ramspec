@@ -49,6 +49,27 @@ def read_dat(fn):
     return data.reshape(datasize)
 
 
+def read_dat_v2(fn):
+
+    # Specify the path to the binary file
+    file_path = fn
+
+    # Define the data types and sizes based on your Fortran code
+    # Assuming an integer (4 bytes), a double (8 bytes), and a string (10 bytes) in the binary file
+    dt = np.dtype([("integer", np.int32), ("double", np.float32)])
+
+    # Read binary data into a NumPy array
+    data = np.fromfile(file_path, dtype=dt)
+
+    # Access individual columns by field names
+    integers = data["integer"]
+    doubles = data["double"]
+
+    # Print the values
+    print("Integers:", integers)
+    print("Doubles.shape:", doubles.shape, ", cubic root is", doubles.shape[0]**(1/3))
+
+
 def lum_halpha(n, V):
     """get the H-alpha luminosity of each grid
     n (array): ionized-hydrogen (electron) number density, cm^-3
@@ -63,11 +84,11 @@ def lum_halpha(n, V):
     return 0.450 * hu_halpha * ndot   # cgs
 
 
-def halpha_sb(fn_den, fn_xHII, width, axis=0, with_dust=1):
+def halpha_sb(den, xHII, width, axis=0, with_dust=1):
     """
     Args:
-        fn_den (str): filename of the density data (output of amr2cube.f90)
-        fn_xHII (str): filename of the xHII data (output of amr2cube.f90)
+        den (narray): density data (output of amr2cube.f90)
+        xHII (narray): xHII data (output of amr2cube.f90)
         width (float): width of the box (in cm)
         axis (int): axis along which to sum the surface brightness
         with_dust (bool): whether to include dust extinction
@@ -75,9 +96,6 @@ def halpha_sb(fn_den, fn_xHII, width, axis=0, with_dust=1):
     return: 
         surfb_ext, units: erg s-1 cm-2 arcsec-2
     """
-
-    den = read_dat(fn_den)
-    xHII = read_dat(fn_xHII)
 
     #<<< H-alpha radition density
     nside = den.shape[0]
@@ -132,7 +150,7 @@ def plot_sed():
     return
 
 
-def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=None, box_fraction=None, cube_data_index_formater="{:05d}"):
+def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=None, box_fraction=None, axis=0, cube_data_index_formater="{:05d}"):
     """Calculate H-alpha surface brightness and spatially integrated spectrum
 
     Args:
@@ -146,19 +164,18 @@ def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=No
         cube_data_index_formater (str, optional): formatter for the cube data indices. You should not change this. Defaults to "{:05d}".
     """
 
-    axis = 1
     r = ramses.Ramses(ram_job_dir)
     r.get_units()
     if box_fraction is None:
-        assert(nml is not None, "nml file is needed to calculate box_fraction")
+        assert nml is not None, "nml file is needed to calculate box_fraction"
         the_nml = f90nml.read(nml)
         params = the_nml["PARAMS"]
         # TODO: extend this to projection from any axis
-        if axis == 1:
+        if axis == 0:
             box_fraction = float(params["xmax"]) - float(params["xmin"])
-        elif axis == 2:
+        elif axis == 1:
             box_fraction = float(params["ymax"]) - float(params["ymin"])
-        elif axis == 3:
+        elif axis == 2:
             box_fraction = float(params["zmax"]) - float(params["zmin"])
     width = box_fraction * r.unit_l   # cm
 
@@ -173,18 +190,25 @@ def calculate_halpha(ram_job_dir, outs, cube_data_dir, ha_data_dir, lmax, nml=No
         
         # H-alpha
         str_out = cube_data_index_formater.format(out)
-        den = f"{cube_data_dir}/out{str_out}_den_l{lmax}.dat"
-        xHII = f"{cube_data_dir}/out{str_out}_xHII_l{lmax}.dat"
+        fn_den = f"{cube_data_dir}/out{str_out}_den_l{lmax}.dat"
+        fn_xHII = f"{cube_data_dir}/out{str_out}_xHII_l{lmax}.dat"
+        den = read_dat(fn_den)
+        xHII = read_dat(fn_xHII)
+        # den = read_dat_v2(fn_den)
         surfb_ext = halpha_sb(den, xHII, width, axis=axis) # erg s-1 cm-2 arcsec-2
         surfb_no_dust = halpha_sb(den, xHII, width, axis=axis, with_dust=0) # erg s-1 cm-2 arcsec-2
+        # save numpy data
         np.save(fn_ha, surfb_ext)
         np.save(fn_ha_no_dust, surfb_no_dust)
+        # save fits data
+        fits.PrimaryHDU(surfb_ext).writeto(f"{ha_data_dir}/sb_with_dust_out{str_out}.fits", overwrite=False)
+        fits.PrimaryHDU(surfb_no_dust).writeto(f"{ha_data_dir}/sb_no_dust_out{str_out}.fits", overwrite=False)
 
         halpha_sb_mean = np.mean(np.mean(surfb_ext, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
         halpha_sb_no_dust_mean = np.mean(np.mean(surfb_no_dust, axis=-1), axis=-1).astype(float)  # erg s-1 cm-2 arcsec-2
         ha_json = {
-            'halpha_strength': halpha_sb_mean,
-            'halpha_no_dust_strength': halpha_sb_no_dust_mean,
+            'halpha_with_dust_strength_mean': halpha_sb_mean,
+            'halpha_no_dust_strength_mean': halpha_sb_no_dust_mean,
             'unit': "erg s-1 cm-2 arcsec-2",
         }
         # save ha_json
@@ -370,7 +394,7 @@ def do_full_spec(ram_job_dir, skirt_data_dir, plot_base_dir, halpha_data_base_di
         spec_per_arcsec2_mat = spec_per_arcsec2[:, np.newaxis, np.newaxis]
         data_with_ha = combine_spec(
             spec_per_arcsec2_mat, wavel, halpha_sb_mean_arr,
-            lam_halpha, width2=ha_width)
+            lam_halpha, line_width=ha_width)
         dic['combined_spec'][out] = NoIndent(list(data_with_ha[:, 0, 0]))
         # fmt = "{:13s}: {:.2e}, {:.2e}, {:.2e}"
         # print(fmt.format("data_with_ha", data_with_ha.max(),

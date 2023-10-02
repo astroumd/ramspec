@@ -4,6 +4,7 @@ amr2cube_mod
 ramski
 /data/
 src.trash/
+/tests/out/
 
 # Prerequisites
 *.d

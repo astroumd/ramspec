@@ -71,7 +71,7 @@ def spectral_integrate(data, wavelength):
     return rect(data, wavelength)
 
 
-def spacial_integrate(fn_fits, is_int=True):
+def spacial_integrate(fn_fits, is_int_over_space=True):
     """Read data cube (where the first axis is wavelength or equivalent) from
     fits file and return spacially integrated SED.
 
@@ -84,7 +84,7 @@ def spacial_integrate(fn_fits, is_int=True):
     Returns:
         _wavelengths (array): wavelength read from the fits
         _spectrum (array): the spacially integrated spectral energy density,
-            in unit of W/m2/um or equivalent if is_int else W/m2/um/arcsec2
+            Unit: if is_int, W/m2/um or equivalent; if not is_int: W/m2/um/arcsec2
             or equivalent.
     """
 
@@ -92,7 +92,7 @@ def spacial_integrate(fn_fits, is_int=True):
         _wavelengths = np.array([wavel[0] for wavel in _hdus[1].data])  # micron
         _data = _hdus[0].data
         _spectrum = np.mean(np.mean(_data, axis=-1), axis=-1)
-        if is_int:
+        if is_int_over_space:
             hd = _hdus[0].header
             # assert hd['BUNIT'] == 'erg/s/cm2/arcsec2'
             solid_angle_per_pixel = hd['CDELT1'] * hd['CDELT2']  # arcsec2
@@ -125,7 +125,7 @@ def get_sed(prefix, kind="sed", is_int=0):
     assert kind in ["sed", "fits"]
     if kind == "fits":
         fn = f'{prefix}_total.fits'
-        return spacial_integrate(fn, is_int=is_int)
+        return spacial_integrate(fn, is_int_over_space=is_int)
     elif kind == "sed":
         fn = f'{prefix}_sed.dat'
         _wavelengths, _spectrum = np.loadtxt(fn, unpack = True)
@@ -135,7 +135,7 @@ def get_sed(prefix, kind="sed", is_int=0):
     return _wavelengths, _spectrum
 
 
-def combine_spec(specs, wavelengths, spec2, wavelength2, width2='resol'):
+def combine_spec(specs, wavelengths, line_str, line_wavelength, line_width='resol'):
     """Combine pixels of spectrum with pixels of single-line surface brightness.
 
     Note that the units of spec2 / wavelength2 should be the same as that of
@@ -153,31 +153,80 @@ def combine_spec(specs, wavelengths, spec2, wavelength2, width2='resol'):
     wavelength2 (double)
         The wavelength of spec2 (same units as wavelengths)
     width2 ('resol' or double):
-        (Default: None) The width of spec2. If set to None (default), use the
+        (Default: 'resol') The width of spec2. If set to resol, use the
         resolution at the corresponding wavelength in wavelengths.
 
     """
 
-    assert specs.shape[1:] == spec2.shape, "specs: {}, spec2: {}".format(
-        specs.shape, spec2.shape)
-    pick = np.argmax(wavelengths >= wavelength2)
+    assert specs.shape[1:] == line_str.shape, "specs: {}, spec2: {}".format(
+        specs.shape, line_str.shape)
+    pick = np.argmax(wavelengths >= line_wavelength)
+    assert pick > 0 and pick < len(wavelengths) - 1, "line_wavelength is not in the range of wavelengths"
+    pick -= 1
     dlam_instru = wavelengths[pick + 1] - wavelengths[pick]  # micron
     ret = specs.copy()
-    if width2 is "resol":
-        logger.warn('Warning: Using resol of the wavelengths. This is not physical unless '\
-                       'wavelengths represents real instrument.')
-        ret[pick, ...] += spec2 / dlam_instru
+    if isinstance(line_width, str):
+        if line_width == "resol":
+            logger.warn('Warning: Using spectral resolution as the width of H-alpha. This is not physical unless the spectral resolution matches real instrument.')
+            ret[pick, ...] += line_str / dlam_instru
+        else:
+            raise SystemExit("width2 should be either 'resol' or a float.")
     else:
-        assert type(width2) is float, "width2 should be a float but is {}".format(type(width2))
-        # if width2 > dlam_instru:
-        #     raise SystemExit("Your width2 is larger than the width of the instrument."\
-        #                      "This is not supported right now.")
-        lam_l, lam_r = wavelength2 - width2/2, wavelength2 + width2/2
-        pick_l = np.argmax(wavelengths >= lam_l)
-        pick_r = np.argmax(wavelengths >= lam_r)
-        assert pick_l and pick_r  # either of them should not be 0
-        if pick_r == pick_l:
-            pick_r += 1
-        ret[pick_l:pick_r, ...] += spec2 / width2
+        pick_c = np.argmax(wavelengths >= line_wavelength)
+        dl = wavelengths[pick_c] - wavelengths[pick_c - 1]
+        if line_width < dl:
+            ret[pick_c, ...] += line_str / line_width
+        else:
+            lam_l, lam_r = line_wavelength - line_width/2, line_wavelength + line_width/2
+            pick_l = np.argmax(wavelengths >= lam_l)
+            pick_r = np.argmax(wavelengths >= lam_r)
+            assert pick_l and pick_r  # both of them should not be 0
+            if pick_r == pick_l:
+                pick_r += 1
+            ret[pick_l:pick_r, ...] += line_str / line_width
     return ret
 
+
+def image_filter(data, wavelengths, l_c=None, l_w=None, l_min=None,
+                 l_max=None, l_pick=None, scale=None):
+    """ Given a data cube (3-D numpy array), return the filtered image in 2-D
+
+    Args:
+        data: (3-D numpy array) spectrum in pixels, unit:
+            erg/s/cm2/micron/arcsec2 or equivalent
+        wavelengths: (numpy array) wavelengths, the first dimension of data
+        l_c: (float) the center of the filter
+        l_w: (float) the width of the filter
+        l_min: (float) the left boundary of the filter
+        l_max: (float) the right boudnary of the filter
+        l_pick: (float) if not None, overwrite all previous four parameters.
+            Pick a single image at the given wavelength and return data *
+            l_pick.
+        scale: (float) scale up or down the spectral energy
+
+    Returns:
+        (2-D numpy array)
+    """
+
+    if l_pick is not None:
+        pick = np.argmax(wavelengths >= l_pick)
+        # print(f"Applying filter with l_pick = {l_pick}, return data[pick, ...] / width_at_l_pick * l_pick")
+        return data[pick, ...] / (wavelengths[pick] - wavelengths[pick - 1]) * l_pick
+    if l_c is not None:
+        l_min = l_c - l_w / 2
+        l_max = l_c + l_w / 2
+    left = np.argmax(wavelengths >= l_min)
+    right = np.argmax(wavelengths >= l_max)
+    if right == left:
+        right += 1
+    ret = np.zeros(data.shape[1:])
+    for i in range(left, right):
+        ret += data[i, ...] * (wavelengths[i] - wavelengths[i - 1])
+    # print(f"Applying filter with l_min = {l_min}, l_max = {l_max}, width ="
+    #       f" {l_max - l_min}, # of bins: {right-left}")
+    # print(f"Applying filter The actual wavelength range is from {wavelengths[left]} to "\
+    #       f"{wavelengths[right]}, width ="
+    #       f" {wavelengths[right] - wavelengths[left]}, # of bins: {right-left}")
+    if scale is not None:
+        ret *= scale
+    return ret

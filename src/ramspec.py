@@ -1,11 +1,12 @@
 import os
-import numpy as np
-import matplotlib.pyplot as plt
-from .amr2cube import run_amr2cube_from_nml
+import f90nml
+from .amr2cube import run_amr2cube_base
 from .skirt import run_ramski, plot_skirt_spec
 from .sed_tools import get_sed, combine_spec
-from .run_final_spectrum import make_combined_spec, plot_combined_spec
-from .h_alpha import calculate_halpha
+# from .run_final_spectrum import make_combined_spec, plot_combined_spec, make_mock_photo
+from .h_alpha import read_dat, read_dat_v2, calculate_halpha
+from .spectrum import *
+from .plot_image import plot_halpha, plot_combined_spec
 
 
 global FIELDS 
@@ -36,20 +37,36 @@ def run_cube_and_ramski(ramjobdir, outs, data_dir, plot_dir, nml, lmax, letdie=T
     os.makedirs(cube_data_dir, exist_ok=True)
     os.makedirs(ha_data_dir, exist_ok=True)
     os.makedirs(plot_dir, exist_ok=True)
+
+    params = f90nml.read(nml)["PARAMS"]
+    left = [params["xmin"], params["ymin"], params["zmin"]]
+    right = [params["xmax"], params["ymax"], params["zmax"]]
+    # center = [(params["xmax"] + params["xmin"])/2,
+    #             (params["ymax"] + params["ymin"])/2,
+    #             (params["zmax"] + params["zmin"])/2]
+    widthx = float(params["xmax"]) - float(params["xmin"])
+    # widthy = float(params["ymax"]) - float(params["ymin"])
+    # widthz = float(params["zmax"]) - float(params["zmin"])
+    # assert widthx == widthy == widthz, "Non-cubic box is not supported. To fix this, either change it to cubic box or change the code here to define a projection axis."
+    width = widthx
     
     print("\n>>>>>>>>>> Preparing cube data using amr2cube...")
-    run_amr2cube_from_nml(ramjobdir, outs, out_dir=cube_data_dir, nml=nml, fields=FIELDS, lmax=lmax)
+    # run_amr2cube_from_nml(ramjobdir, outs, out_dir=cube_data_dir, nml=nml, fields=FIELDS, lmax=lmax)
+    run_amr2cube_base(ramjobdir, outs, out_dir=cube_data_dir, left=left, right=right, lmax=lmax, fields=FIELDS) 
     print("Success!")
 
     print("\n>>>>>>>>>> Calculating H-alpha...")
     calculate_halpha(ramjobdir, outs, cube_data_dir, ha_data_dir, lmax, nml=nml)
     print("Success!")
 
+    print("\n>>>>>>>>>> Plotting H-alpha image...")
+    plot_halpha(data_dir, outs, plot_dir, box_fraction=width)
+
     print("\n>>>>>>>>>> Running RAMSKI to prepare data for SKIRT...")
     ret = run_ramski(ramjobdir, outs, skirt_data_dir, nml, lmax=lmax, letdie=letdie, version=version)
     if ret == 1:
         print("Success!")
-        print(f"Now run SKIRT simulations in the output folder: {skirt_data_dir}.")
+        print(f"Now run SKIRT simulations in the output folder: {skirt_data_dir}/out#####/{{name_ski}}_mod.ski")
         print("Then run this script again to continue.")
         return
     elif ret == 2:
@@ -57,14 +74,20 @@ def run_cube_and_ramski(ramjobdir, outs, data_dir, plot_dir, nml, lmax, letdie=T
         return
 
     print("\n>>>>>>>>>> Optional: plot SKIRT spectrum...")
-    plot_skirt_spec(skirt_data_dir, outs, plot_dir)
+    plot_skirt_spec(skirt_data_dir, outs, plot_dir)     # empty for now
 
-    feature = "main_mod_total"
+    # feature = "main_mod_total"
+    feature = "main_mod_1e7ph_total"
 
     print("\n>>>>>>>>>> Combine SKIRT spectrum with h-alpha...")
     # TODO: split into make_combined_spec and plot_combined_spec
     make_combined_spec(data_dir, outs, feature=feature)
+
+    print("\n>>>>>>>>>> Plotting combined spectrum...")
     plot_combined_spec(data_dir, outs, plot_dir, feature=feature)
+
+    print("\n>>>>>>>>>> Apply filters to combined data cube...")
+    apply_filters(data_dir, outs, feature)
 
     return
 

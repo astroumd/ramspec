@@ -9,7 +9,7 @@ Modify .ski file and (may) run skirt using the python package pts.
 import os, sys
 import logging
 import matplotlib as mpl
-# sys.path.append("/startrek/chongchong/PTS")
+sys.path.append("/Users/cche/softwares/skirt/PTS.2023")
 import pts.simulation as sm
 # import pts.utils as ut
 import pts.visual as vis
