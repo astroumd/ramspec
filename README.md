@@ -1,16 +1,16 @@
 
 Below are steps to make spectrum curves from a RAMSES output. This is tested on my star formation simulations. 
 
-1. Download ramspec (this repo) including its submodules: `git clone --recursive https://github.com/astroumd/ramspectrum.git`
-2. Compile ramski:
-   1. `cd ramspectrum/external/RAMSKI_test/f90; make`
+1. Download ramspec (this repo) including its submodules: `git clone --recursive https://github.com/astroumd/ramspec.git`
+3. Compile ramski:
+   1. `cd ramspec/external/RAMSKI_test/f90; make`
    2. Note: check if `gfortran` exists via `which gfortran`. You may need to load the necessary module, e.g. `module load gcc` (on HPC) or `brew install gcc` (on macOS). 
-3. Compile amr2cube: `cd ramspectrum/tools/amr2cube; make`
-4. Install SKIRT following the official website. Install PTS as well and add it to PYTHONPATH (see tests/run.sh for how to do this). Confirm by running `python -c 'import pts'`
-5. Install necessary packages for pts
+4. Compile amr2cube: `cd ramspec/tools/amr2cube; make`
+5. Install SKIRT following the official website. Install PTS as well and add it to PYTHONPATH (see tests/run.sh for how to do this). Confirm by running `python -c 'import pts'`
+6. Install necessary packages for pts
    1. List Python package dependencies: `python -m pts.do list_dependencies` 
    2. Install missing packages via conda or pip. For example, I have to do the following: `conda install lxml reportlab` and `python -m pip install fsps opencv-python`
-6. Prepare a namelist file for RAMSKI/SKIRT simulation and run the test:
+7. Prepare a namelist file for RAMSKI/SKIRT simulation and run the test:
    1. Copy the tests folder to somewhere in your computer. 
    2. Set PYTHONPATH in your shell following the example in run.sh. You should set your PYTHONPATH to the directory containing ramspec AND the path to PTS.
    3. Run import_modules.py to make sure all modules and installed and correctly linked: `cd tests; python test_modules.py`

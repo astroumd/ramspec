@@ -1,0 +1,73 @@
+&PARAMS
+  wrt_ski=.true.	!! write ski file
+  wrt_prt=.false.	!! write particle file
+  wrt_hdr=.true.	!! write hydro file
+  wrt_halpha=.false.
+  name_ski="main"	!! name of ski file
+  name_prt="part_CK"	!! name of particle file
+  name_hdr="hydro"	!! name of hydro file
+  version="2023"    !! for recent version of SKIRT; some elements in the .ski file has changed
+  xmin=0.45 		!! range (in the code unit)
+  xmax=0.55 		!! range (in the code unit)
+  ymin=0.45 		!! range (in the code unit)
+  ymax=0.55 		!! range (in the code unit)
+  zmin=0.45 		!! range (in the code unit)
+  zmax=0.55 		!! range (in the code unit)
+  nph=10000		!! number of photon packets
+  lmin=7 		!! minimum AMR level to consider in SKIRT
+  lmax=14 		!! maximum AMR level to consider in SKIRT
+  redshift=0 		!! redshift
+  d_lum=0.165		!! luminosity distance (Mpc) - works only when redshift=0. CCH: 0.165 so that 80 pc is 100'', 1000 pixels
+  itemp=11		!! hydro index of pressure/temperature
+  !! imetal=6		!! hydro index of metallicity
+  X=0.76		!! hydrogen mass fraction
+  Y=0.24		!! helium mass fraction
+  mu=1.40		!! mean molecular weight
+/
+
+&SOURCE
+  minWaveSource=900	!! minimum wavelength of source in Angstrom
+  maxWaveSource=10000	!! maximum wavelength of source in Angstrom
+  SEDtype="CK"		!! BB, BC, CK
+  BC_high=.false.	!! Bruzual & Charlot - high resolution?
+  BC_Salpeter=.false.	!! Bruzual & Charlot - Salpeter IMF? (default - Chabrier)
+  z_part=0.02		!! same metallicity for particles
+  extr=1		!! extract one particle out of "extr" particles
+/
+
+&MEDIUM
+  nomedium=.false.	!! no extinction
+  sec_emit=.false.	!! secondary emission from dust
+!! need further tests
+  Tdust=6e4	 	!! temperature above which dusts are destroyed
+  fdust=0.5 		!! dust fraction - 0.4 from Saftly et al. 2015
+  z_medium=0.02		!! same metallicity for medium
+/
+
+&LYMAN_ALPHA
+  lyman=.false.		!! lyman-alpha transfer on
+  Tlya=1e4		!! default temperature of the neutral hydrogen gas
+  name_lya="lyman"      !! name of Ly-a source file
+  accel=10		!! acceleration strength, the larger, the faster
+/
+
+&GRID
+  fluxOutputStyle="Wavelength"  !! x-axis of SED - Neutral, Frequency or Wavelength
+  gridType="LogWavelengthGrid"  !! LogWavelengthGrid,LinWavelengthGrid,NestedLogWavelengthGrid,FileWavelengthGrid
+  minWavelength=100		!! minimum wavelength of grid
+  maxWavelength=60000		!! maximum wavelength of grid
+  numWavelengths=200		!! number of grid points
+  minWavelengthSubGrid=4000	!! minimum wavelength of high-resolution grid (valid only for nested grid)
+  maxWavelengthSubGrid=6000	!! maximum wavelength of high-resolution grid (valid only for nested grid)
+  numWavelengthsSubGrid=100	!! number of high-resolution grid points (valid only for nested grid)
+  name_grid="grid.txt"		!! path to grid file (value only when read from a file)
+/
+
+&IMAGE
+  ps=0.1 		!! plate scale - arcsec/pixel
+  fovx=3e4		!! field-of-view in pc - will be adjusted based on the
+  fovy=3e4		!! field-of-view in pc - plate scale and simulation box size
+  incl=0		!! inclination
+  azim=0		!! azimuth
+  roll=90		!! roll
+/
