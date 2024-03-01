@@ -1,6 +1,7 @@
 [submodule "external/RAMSKI_test"]
 	path = external/RAMSKI_test
 	url = https://github.com/jwpark5064/RAMSKI_test.git
+	branch = SF2
 [submodule "external/ramtools"]
 	path = external/ramtools
 	url = https://github.com/chongchonghe/ramtools.git
